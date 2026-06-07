@@ -70,12 +70,12 @@ stellar-dna/
 
 ### Prerequisites
 
-| Tool  | Version  | Why |
-|-------|----------|-----|
-| Node  | 18+      | Frontend dev server / build |
-| npm   | 9+       | Frontend dependencies |
-| Python| 3.11+    | Backend runtime |
-| pip   | 23+      | Backend dependencies |
+| Tool   | Version | Why                         |
+| ------ | ------- | --------------------------- |
+| Node   | 18+     | Frontend dev server / build |
+| npm    | 9+      | Frontend dependencies       |
+| Python | 3.11+   | Backend runtime             |
+| pip    | 23+     | Backend dependencies        |
 
 A free API key for at least one of the following is also required to generate narratives:
 
@@ -125,6 +125,7 @@ Open <http://localhost:5173>, enter a birth date, time, and city. The frontend g
 ### `POST /api/part1`
 
 **Request:**
+
 ```json
 {
   "birth_date": "1999-09-14",
@@ -186,13 +187,54 @@ Never commit directly to `main`. `dev` is always slightly ahead of `main`.
 
 ## Scientific Sources
 
-| Source | Used for |
-|---|---|
-| HYG Database v3.7 (David Nash, public domain) | Star catalog (RA/Dec/magnitude/spectral type) |
-| skyfield + JPL DE421 | Sky position calculations (alt/az from lat/lon/time) |
-| Kobayashi et al. 2020, *ApJ* 900 179 | Stellar nucleosynthesis yield tables (basis for `SPECTRAL_ELEMENT_YIELDS`) |
-| Chotai et al. 2003, Boland & Kessler 2002 | Chronobiology research on birth-season modifiers |
-| OpenStreetMap Nominatim | Free geocoding (city name → lat/lon) |
+| Source                                        | Used for                                                                   |
+| --------------------------------------------- | -------------------------------------------------------------------------- |
+| HYG Database v3.7 (David Nash, public domain) | Star catalog (RA/Dec/magnitude/spectral type)                              |
+| skyfield + JPL DE421                          | Sky position calculations (alt/az from lat/lon/time)                       |
+| Kobayashi et al. 2020, _ApJ_ 900 179          | Stellar nucleosynthesis yield tables (basis for `SPECTRAL_ELEMENT_YIELDS`) |
+| Chotai et al. 2003, Boland & Kessler 2002     | Chronobiology research on birth-season modifiers                           |
+| OpenStreetMap Nominatim                       | Free geocoding (city name → lat/lon)                                       |
+
+---
+
+## Implementation Plan
+
+This is the active dev roadmap. The work is split into two stages, one per spec doc.
+
+### Part 1 — Astrophysics Engine (`docs/PART1_REFERENCE.md`)
+
+The frontend UI and the backend scaffold are in place. Part 1 is the job of taking
+a birth date/time/location, reconstructing the sky, and returning the 6
+Part 1 outputs that Part 2 will consume.
+
+| #   | Step                                                                                                                                                                                                                        | Status | Files                                        |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------- |
+| 1   | Backend venv + `pip install -r requirements.txt`                                                                                                                                                                            | done   | `backend/.venv/`, `backend/requirements.txt` |
+| 2   | Real sky engine: load HYG, filter mag < 6.5, use `skyfield` to find stars above the horizon, return `star_positions` with `name/ra/dec/magnitude/spectral_class/x/y/z`                                                      | done   | `backend/core/sky_engine.py`                 |
+| 3   | Spectral classifier: parse HYG `spect` column to OBAFGKM, count by class, normalize to `spectral_weights`, argmax → `dominant_class`, brightest in that class → `dominant_star_example`                                     | done   | `backend/core/spectral_classifier.py`        |
+| 4   | Element percentages: weighted sum of `SPECTRAL_ELEMENT_YIELDS` table, renormalize; map dominant element to `nucleosynthesis_path`; compute `rarest_element` + `rarest_element_origin`; compute `avg_atom_age_billion_years` | done   | `backend/core/nucleosynthesis.py`            |
+| 5   | Chronobiology: meteorological season lookup (month-only), hemisphere flip                                                                                                                                                   | done   | `backend/core/chronobiology.py`              |
+| 6   | Router: accept the frontend's field names (`birth_date`, `birth_time`, `latitude`, `longitude`, `location_name`); return a flat response that matches both the frontend's render code and the Part 2 contract               | done   | `backend/routers/part1.py`                   |
+
+**Part 1 contract (the 6 values Part 2 will receive):**
+`season`, `hemisphere`, `dominant_class`, `spectral_weights`, `element_percentages`, `nucleosynthesis_path`.
+
+**Part 1 display-only extras (frontend renders, Part 2 ignores):**
+`star_positions`, `dominant_star_example`, `rarest_element`, `rarest_element_origin`, `avg_atom_age_billion_years`.
+
+### Part 2 — Trait Engine (`docs/PART2_REFERENCE.md`)
+
+_To be filled in once Part 1 is verified end-to-end._ The work will be:
+
+- Rewrite `core/trait_scorer.py` with the 5 scoring functions from the spec (energy / pace / legacy / curiosity / temporal) using the 6 Part 1 outputs as inputs.
+- Rewrite `llm/prompt_builder.py` to send all 11 values (6 Part 1 + 5 scores) and require JSON output with the `Note:` disclaimer.
+- Update `llm/narrative_client.py` to parse the JSON response and split into `archetype_name` + `narrative_p1/p2/p3`.
+- Reshape `routers/part2.py` to accept the flat 9-field shape the frontend already sends in `postPart2`, and return the 9 Part 2 outputs.
+- Add `.env` with at least one of `GEMINI_API_KEY` / `GROQ_API_KEY`.
+
+### Issue to Remember (Part 1 / Part 2 boundary)
+
+The frontend's `api/client.js` `postPart2()` already sends the 9 Part 1 fields directly. The current Part 2 router still expects `{ date, time, latitude, longitude, part1 }` and the trait scorer is a placeholder. So Part 1 will render fully on `/profile` but the `TraitProfile` section will be empty / error. This is the Part 2 phase to fix.
 
 ---
 

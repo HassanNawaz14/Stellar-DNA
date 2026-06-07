@@ -1,5 +1,5 @@
-import { useMemo, useRef } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { useEffect, useMemo, useRef } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 
@@ -8,73 +8,133 @@ const SPECTRAL_COLORS = {
   B: '#aabfff',
   A: '#cad7ff',
   F: '#f8f7ff',
-  G: '#fff4e8',
+  G: '#fff4ea',
   K: '#ffd2a1',
   M: '#ffcc6f',
   default: '#cfd8ff',
 }
 
-function raDecToVec3(raHours, decDeg, radius) {
-  const ra = (raHours / 24) * Math.PI * 2
-  const dec = (decDeg * Math.PI) / 180
-  const x = radius * Math.cos(dec) * Math.cos(ra)
-  const y = radius * Math.sin(dec)
-  const z = radius * Math.cos(dec) * Math.sin(ra)
-  return [x, y, z]
+const SKY_RADIUS = 8
+const GALACTIC_TILT_RAD = (62.6 * Math.PI) / 180
+const COLOR_BOOST = 1.45
+
+function makeStarTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 64
+  canvas.height = 64
+  const ctx = canvas.getContext('2d')
+  const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32)
+  grad.addColorStop(0.0, 'rgba(255,255,255,1.0)')
+  grad.addColorStop(0.15, 'rgba(255,255,255,1.0)')
+  grad.addColorStop(0.35, 'rgba(255,255,255,0.9)')
+  grad.addColorStop(0.55, 'rgba(255,255,255,0.4)')
+  grad.addColorStop(1.0, 'rgba(255,255,255,0.0)')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, 64, 64)
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.needsUpdate = true
+  return tex
 }
 
-function StarPoint({ star, radius }) {
-  const color = SPECTRAL_COLORS[star.spectral_class] || SPECTRAL_COLORS.default
-  const mag = star.magnitude ?? 5
-  const size = Math.max(0.015, Math.min(0.25, 0.25 - mag * 0.025))
-  const pos = useMemo(
-    () => raDecToVec3(star.ra, star.dec, radius),
-    [star.ra, star.dec, radius],
-  )
-  return (
-    <mesh position={pos}>
-      <sphereGeometry args={[size, 6, 6]} />
-      <meshBasicMaterial color={color} />
-    </mesh>
-  )
+function magToSize(mag) {
+  const raw = 3.55 - 0.55 * mag
+  return Math.max(0.5, Math.min(20, raw))
 }
 
-function RotatingSky({ stars, radius }) {
-  const ref = useRef(null)
+function StarField({ stars, texture }) {
+  const pointsRef = useRef(null)
+  const { gl } = useThree()
+
+  const { geometry, material } = useMemo(() => {
+    const n = stars.length
+    const positions = new Float32Array(n * 3)
+    const colors = new Float32Array(n * 3)
+    const sizes = new Float32Array(n)
+    const tmp = new THREE.Color()
+
+    for (let i = 0; i < n; i++) {
+      const s = stars[i]
+      const ra = (s.ra / 24) * Math.PI * 2
+      const dec = (s.dec * Math.PI) / 180
+      positions[i * 3 + 0] = SKY_RADIUS * Math.cos(dec) * Math.cos(ra)
+      positions[i * 3 + 1] = SKY_RADIUS * Math.sin(dec)
+      positions[i * 3 + 2] = SKY_RADIUS * Math.cos(dec) * Math.sin(ra)
+
+      const hex = SPECTRAL_COLORS[s.spectral_class] || SPECTRAL_COLORS.default
+      tmp.set(hex)
+      colors[i * 3 + 0] = tmp.r
+      colors[i * 3 + 1] = tmp.g
+      colors[i * 3 + 2] = tmp.b
+
+      sizes[i] = magToSize(s.magnitude ?? 5)
+    }
+
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    geo.setAttribute('aColor', new THREE.BufferAttribute(colors, 3))
+    geo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1))
+
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTexture: { value: texture },
+        uDpr: { value: 1 },
+      },
+      vertexShader: `
+        attribute float aSize;
+        attribute vec3 aColor;
+        uniform float uDpr;
+        varying vec3 vColor;
+        void main() {
+          vColor = aColor;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = aSize * uDpr;
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uTexture;
+        varying vec3 vColor;
+        void main() {
+          vec4 tex = texture2D(uTexture, gl_PointCoord);
+          if (tex.a < 0.005) discard;
+          gl_FragColor = vec4(vColor * tex.rgb * ${COLOR_BOOST.toFixed(2)}, tex.a);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+
+    return { geometry: geo, material: mat }
+  }, [stars, texture])
+
+  useEffect(() => {
+    material.uniforms.uDpr.value = gl.getPixelRatio()
+  }, [gl, material])
+
   useFrame((_, delta) => {
-    if (ref.current) ref.current.rotation.y += delta * 0.02
+    if (pointsRef.current) pointsRef.current.rotation.y += delta * 0.02
   })
+
   return (
-    <group ref={ref}>
-      {stars.map((s, i) => (
-        <StarPoint key={`${s.name || 's'}-${i}`} star={s} radius={radius} />
-      ))}
+    <group rotation={[GALACTIC_TILT_RAD, 0, 0]}>
+      <points ref={pointsRef} geometry={geometry} material={material} />
     </group>
   )
 }
 
-function SkyDome({ radius }) {
-  return (
-    <mesh>
-      <sphereGeometry args={[radius * 1.5, 32, 32]} />
-      <meshBasicMaterial
-        color="#05060f"
-        side={THREE.BackSide}
-        transparent
-        opacity={0.95}
-      />
-    </mesh>
-  )
-}
-
 export default function StarMap({ stars = [] }) {
-  const RADIUS = 8
+  const texture = useMemo(() => makeStarTexture(), [])
+
   return (
     <div className="star-map">
-      <Canvas camera={{ position: [0, 0, 14], fov: 60 }}>
-        <ambientLight intensity={0.4} />
-        <SkyDome radius={RADIUS} />
-        <RotatingSky stars={stars} radius={RADIUS} />
+      <Canvas
+        camera={{ position: [0, 0, 14], fov: 60 }}
+        gl={{ antialias: true }}
+        dpr={[1, 2]}
+      >
+        <color attach="background" args={['#000000']} />
+        <StarField stars={stars} texture={texture} />
         <OrbitControls enableZoom enablePan enableRotate />
       </Canvas>
       <div className="star-map-legend">

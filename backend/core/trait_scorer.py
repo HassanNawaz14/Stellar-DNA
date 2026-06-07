@@ -10,6 +10,16 @@ TRAIT_AXES = [
 ]
 
 
+def compute_sky_diversity(spectral_weights: dict[str, float]) -> int:
+    """Count OBAFGKM classes that hold more than 5% of the visible sky.
+
+    Used by the curiosity-type rule table in Part 2 (see
+    docs/PART2_REFERENCE.md §Score 4) and exposed via the Part 1 API
+    response so both stages share one source of truth.
+    """
+    return sum(1 for w in spectral_weights.values() if w > 0.05)
+
+
 def score_traits(part1: dict | None, chrono: dict) -> dict[str, float]:
     """Combine elemental breakdown + chrono info into 0-1 trait scores.
 
