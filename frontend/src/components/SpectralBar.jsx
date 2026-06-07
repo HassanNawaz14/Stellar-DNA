@@ -18,6 +18,16 @@ const SPECTRAL_NAMES = {
   M: 'Red (coolest)',
 }
 
+const SPECTRAL_PHRASES = {
+  O: "the universe's most violent stars",
+  B: 'rare giants that die young',
+  A: 'bright and beautiful, gone too soon',
+  F: 'slightly restless, slightly brilliant',
+  G: 'steady burners — like our Sun',
+  K: 'calm, long-lived, dependable',
+  M: 'the oldest stars still burning',
+}
+
 export default function SpectralBar({ weights = {} }) {
   const classes = ['O', 'B', 'A', 'F', 'G', 'K', 'M']
   const max = Math.max(...classes.map((c) => weights[c] || 0), 0.01)
@@ -33,7 +43,10 @@ export default function SpectralBar({ weights = {} }) {
               <span className="spectral-class" style={{ color: SPECTRAL_COLORS[c] }}>
                 {c}
               </span>
-              <span className="spectral-name">{SPECTRAL_NAMES[c]}</span>
+              <div className="spectral-name-cell">
+                <span className="spectral-name">{SPECTRAL_NAMES[c]}</span>
+                <span className="spectral-phrase">{SPECTRAL_PHRASES[c]}</span>
+              </div>
               <div className="spectral-track">
                 <div
                   className="spectral-fill"

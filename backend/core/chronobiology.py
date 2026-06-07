@@ -1,35 +1,34 @@
-"""Chronobiology: birth season + hemisphere classification."""
+"""Chronobiology: birth season + hemisphere classification.
+
+Uses meteorological seasons (not astronomical) per the Part 1 spec:
+  Dec/Jan/Feb = winter, Mar/Apr/May = spring, Jun/Jul/Aug = summer,
+  Sep/Oct/Nov = autumn. The southern hemisphere is the northern one flipped.
+"""
 
 from datetime import datetime
 
-NORTHERN_SEASONS = {
-    "spring": ((3, 20), (6, 20)),
-    "summer": ((6, 21), (9, 22)),
-    "autumn": ((9, 23), (12, 20)),
-    "winter": ((12, 21), (3, 19)),
+NORTHERN_SEASONS_BY_MONTH: dict[int, str] = {
+    12: "winter", 1: "winter", 2: "winter",
+    3: "spring",  4: "spring", 5: "spring",
+    6: "summer",  7: "summer", 8: "summer",
+    9: "autumn", 10: "autumn", 11: "autumn",
 }
 
-
-def _season(month: int, day: int) -> str:
-    for name, ((sm, sd), (em, ed)) in NORTHERN_SEASONS.items():
-        if (month, day) >= (sm, sd) and (month, day) <= (em, ed):
-            return name
-    return "winter"
+SOUTHERN_FLIP: dict[str, str] = {
+    "winter": "summer",
+    "summer": "winter",
+    "spring": "autumn",
+    "autumn": "spring",
+}
 
 
 def season_and_hemisphere(date: str, latitude: float) -> dict:
     """Return hemisphere + season for a given birth date and latitude."""
     dt = datetime.strptime(date, "%Y-%m-%d")
     hemisphere = "northern" if latitude >= 0 else "southern"
-    season = _season(dt.month, dt.day)
+    season = NORTHERN_SEASONS_BY_MONTH[dt.month]
     if hemisphere == "southern":
-        opposite = {
-            "spring": "autumn",
-            "summer": "winter",
-            "autumn": "spring",
-            "winter": "summer",
-        }
-        season = opposite[season]
+        season = SOUTHERN_FLIP[season]
     return {
         "hemisphere": hemisphere,
         "season": season,
