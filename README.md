@@ -143,12 +143,11 @@ The frontend is a standard Vite/React app. To deploy on Vercel:
 
 1. Push the repository to GitHub.
 2. Import the project in [Vercel](https://vercel.com/new).
-3. Set the **Root Directory** to the repo root (the `vercel.json` is at the root level).
-4. Add an environment variable:
+3. In **Project Settings → Build and Deployment**, set **Root Directory** to `frontend` (required — the frontend code lives in a subdirectory).
+4. In **Project Settings → Build and Deployment**, set **Node.js Version** to `20.x`.
+5. Add an environment variable:
    - `VITE_API_BASE` — set to your HF Spaces backend URL (e.g. `https://your-space.hf.space/api`).
-5. Deploy. All routes fall back to `index.html` for client-side routing.
-
-Vercel will auto-detect the Vite framework from the root-level `vercel.json`.
+6. Deploy. All routes fall back to `index.html` for client-side routing.
 
 ### Backend → Hugging Face Spaces
 
