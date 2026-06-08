@@ -16,7 +16,7 @@ const SPECTRAL_COLORS = {
 
 const SKY_RADIUS = 8
 const GALACTIC_TILT_RAD = (62.6 * Math.PI) / 180
-const COLOR_BOOST = 1.45
+const COLOR_BOOST = 2.2
 
 function makeStarTexture() {
   const canvas = document.createElement('canvas')
@@ -25,9 +25,10 @@ function makeStarTexture() {
   const ctx = canvas.getContext('2d')
   const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32)
   grad.addColorStop(0.0, 'rgba(255,255,255,1.0)')
-  grad.addColorStop(0.15, 'rgba(255,255,255,1.0)')
-  grad.addColorStop(0.35, 'rgba(255,255,255,0.9)')
-  grad.addColorStop(0.55, 'rgba(255,255,255,0.4)')
+  grad.addColorStop(0.1, 'rgba(255,255,255,1.0)')
+  grad.addColorStop(0.3, 'rgba(255,255,255,0.9)')
+  grad.addColorStop(0.5, 'rgba(255,255,255,0.5)')
+  grad.addColorStop(0.75, 'rgba(255,255,255,0.15)')
   grad.addColorStop(1.0, 'rgba(255,255,255,0.0)')
   ctx.fillStyle = grad
   ctx.fillRect(0, 0, 64, 64)
@@ -37,8 +38,8 @@ function makeStarTexture() {
 }
 
 function magToSize(mag) {
-  const raw = 3.55 - 0.55 * mag
-  return Math.max(0.5, Math.min(20, raw))
+  const raw = 4.5 - 0.6 * mag
+  return Math.max(0.8, Math.min(28, raw))
 }
 
 function StarField({ stars, texture }) {
@@ -127,7 +128,7 @@ export default function StarMap({ stars = [] }) {
   const texture = useMemo(() => makeStarTexture(), [])
 
   return (
-    <div className="star-map">
+    <div className="sm-container">
       <Canvas
         camera={{ position: [0, 0, 14], fov: 60 }}
         gl={{ antialias: true }}
@@ -137,7 +138,7 @@ export default function StarMap({ stars = [] }) {
         <StarField stars={stars} texture={texture} />
         <OrbitControls enableZoom enablePan enableRotate />
       </Canvas>
-      <div className="star-map-legend">
+      <div className="sm-legend">
         <span><i style={{ background: SPECTRAL_COLORS.O }} />O</span>
         <span><i style={{ background: SPECTRAL_COLORS.B }} />B</span>
         <span><i style={{ background: SPECTRAL_COLORS.A }} />A</span>
@@ -146,7 +147,7 @@ export default function StarMap({ stars = [] }) {
         <span><i style={{ background: SPECTRAL_COLORS.K }} />K</span>
         <span><i style={{ background: SPECTRAL_COLORS.M }} />M</span>
       </div>
-      <p className="star-map-hint">Drag to rotate · scroll to zoom</p>
+      <p className="sm-hint">Drag to rotate · scroll to zoom</p>
     </div>
   )
 }

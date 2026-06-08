@@ -1,10 +1,15 @@
-"""Part 2: trait profile and LLM narrative."""
+"""Part 2: trait profile and LLM narrative.
+
+Accepts the same flat 9-field shape that the frontend ``api/client.js``
+``postPart2()`` sends, computes the 5 trait scores, builds an LLM prompt
+from all 14 values, and returns the 9-field Part 2 response that the
+frontend ``TraitProfile.jsx`` renders.
+"""
 
 from fastapi import APIRouter
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from core.trait_scorer import score_traits
-from core.chronobiology import season_and_hemisphere
+from core.trait_scorer import score_all
 from llm.prompt_builder import build_prompt
 from llm.narrative_client import generate_narrative
 
@@ -12,32 +17,54 @@ router = APIRouter()
 
 
 class Part2Input(BaseModel):
-    date: str
-    time: str
-    latitude: float
-    longitude: float
-    part1: dict | None = Field(default=None, description="Output of /api/part1")
+    season: str
+    hemisphere: str
+    dominant_class: str
+    dominant_star_example: str | None = None
+    spectral_weights: dict[str, float]
+    element_percentages: dict[str, float]
+    nucleosynthesis_path: str
+    rarest_element: str | None = None
+    rarest_element_origin: str | None = None
 
 
 @router.post("/part2")
-def part2_endpoint(payload: Part2Input):
-    """Return a scored trait profile plus a generated narrative."""
-    chrono = season_and_hemisphere(
-        date=payload.date,
-        latitude=payload.latitude,
+async def part2_endpoint(payload: Part2Input):
+    """Compute 5 trait scores and generate an LLM narrative."""
+    part1 = {
+        "season": payload.season,
+        "hemisphere": payload.hemisphere,
+        "dominant_class": payload.dominant_class,
+        "dominant_star_example": payload.dominant_star_example or "",
+        "spectral_weights": payload.spectral_weights,
+        "element_percentages": payload.element_percentages,
+        "nucleosynthesis_path": payload.nucleosynthesis_path,
+        "rarest_element": payload.rarest_element or "",
+        "rarest_element_origin": payload.rarest_element_origin or "",
+    }
+
+    scores = score_all(
+        spectral_weights=payload.spectral_weights,
+        season=payload.season,
+        nucleosynthesis_path=payload.nucleosynthesis_path,
+        element_percentages=payload.element_percentages,
     )
-    traits = score_traits(part1=payload.part1, chrono=chrono)
-    prompt = build_prompt(
-        part1=payload.part1,
-        chrono=chrono,
-        traits=traits,
-    )
-    narrative = generate_narrative(prompt)
+
+    prompt = build_prompt(part1_outputs=part1, scores=scores)
+
+    try:
+        narrative = await generate_narrative(prompt)
+    except Exception:
+        narrative = {}
+
     return {
-        "birth": payload.model_dump(exclude={"part1"}),
-        "chronobiology": chrono,
-        "part2": {
-            "traits": traits,
-            "narrative": narrative,
-        },
+        "energy_score": scores["energy_score"],
+        "pace_score": scores["pace_score"],
+        "legacy_score": scores["legacy_score"],
+        "curiosity_type": scores["curiosity_type"],
+        "temporal_score": scores["temporal_score"],
+        "archetype_name": narrative.get("archetype_name", ""),
+        "narrative_p1": narrative.get("paragraph_1", ""),
+        "narrative_p2": narrative.get("paragraph_2", ""),
+        "narrative_p3": narrative.get("paragraph_3", ""),
     }

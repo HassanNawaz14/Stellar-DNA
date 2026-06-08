@@ -1,3 +1,20 @@
+const SEASON_COLORS = {
+  winter: { border: '#5fb5d4', label: 'Winter' },
+  spring: { border: '#5b8c5a', label: 'Spring' },
+  summer: { border: '#c9a14a', label: 'Summer' },
+  autumn: { border: '#e16a8d', label: 'Autumn' },
+}
+
+const SPECTRAL_CLASS_COLORS = {
+  O: '#9bb0ff',
+  B: '#aabfff',
+  A: '#cad7ff',
+  F: '#f8f7ff',
+  G: '#fff4ea',
+  K: '#ffd2a1',
+  M: '#ffcc6f',
+}
+
 const HEMISPHERE = {
   northern: 'Northern Hemisphere',
   southern: 'Southern Hemisphere',
@@ -9,16 +26,6 @@ const PATHWAY = {
   type_ia_sn: 'Thermonuclear supernova (Type Ia)',
   r_process: 'Neutron star merger (kilonova)',
   big_bang: 'Big Bang nucleosynthesis',
-}
-
-const SUBTITLES = {
-  season: 'the world you were born into',
-  hemisphere: 'your side of the planet',
-  dominant_class: 'the star type that ruled your sky',
-  example_star: 'a star your sky had in common with',
-  rarest_element: 'the rarest atom in your body',
-  atom_age: 'how old your atoms are on average',
-  nucleosynthesis_path: 'how most of your atoms were forged',
 }
 
 function dynamicForSeason(season) {
@@ -52,10 +59,9 @@ function dynamicForDominantClass(cls) {
   }[cls] || null
 }
 
-function dynamicForExampleStar(name, dominantClass) {
+function dynamicForExampleStar(name) {
   if (!name || name === '—') return null
-  if (!dominantClass || dominantClass === '—') return null
-  return `one of the ${dominantClass}-type stars lighting your sky that night`
+  return `a familiar light in your birth sky`
 }
 
 function dynamicForRarestElement(value) {
@@ -89,61 +95,64 @@ export default function ProfileCard({ data, birth }) {
   const season = data.season ? data.season[0].toUpperCase() + data.season.slice(1) : '—'
   const hemisphere = HEMISPHERE[data.hemisphere] || data.hemisphere
   const pathway = PATHWAY[data.nucleosynthesis_path] || data.nucleosynthesis_path
+  const sc = SEASON_COLORS[data.season]
+  const dcColor = SPECTRAL_CLASS_COLORS[data.dominant_class] || 'rgba(124, 155, 255, 0.5)'
+
   return (
-    <div className="profile-card">
-      <h2 className="card-title">Birth Sky</h2>
+    <div className="pc-section">
+      <h2 className="pc-section-title">Birth Sky</h2>
       {birth && (
-        <p className="profile-meta">
-          {birth.birth_date} · {birth.birth_time} · {birth.location_name}
-        </p>
+        <p className="pc-meta">{birth.birth_date} · {birth.birth_time} · {birth.location_name}</p>
       )}
-      <div className="profile-grid">
-        <Stat
+      <div className="pc-grid">
+        <PCStat
           label="Season"
           value={season}
-          subtitle={SUBTITLES.season}
+          subtitle="the world you were born into"
           dynamic={dynamicForSeason(data.season)}
+          color={sc?.border || 'rgba(124, 155, 255, 0.5)'}
         />
-        <Stat
+        <PCStat
           label="Hemisphere"
           value={hemisphere}
-          subtitle={SUBTITLES.hemisphere}
+          subtitle="your side of the planet"
           dynamic={dynamicForHemisphere(data.hemisphere)}
+          color="rgba(124, 155, 255, 0.5)"
         />
-        <Stat
+        <PCStat
           label="Dominant stellar class"
           value={`${data.dominant_class || '—'}-type`}
-          subtitle={SUBTITLES.dominant_class}
+          subtitle="the star type that ruled your sky"
           dynamic={dynamicForDominantClass(data.dominant_class)}
-          accent
+          color={dcColor}
         />
-        <Stat
+        <PCStat
           label="Example star"
           value={data.dominant_star_example || '—'}
-          subtitle={SUBTITLES.example_star}
-          dynamic={dynamicForExampleStar(data.dominant_star_example, data.dominant_class)}
+          subtitle="a star your sky had in common with"
+          dynamic={dynamicForExampleStar(data.dominant_star_example)}
+          color="rgba(124, 155, 255, 0.5)"
         />
-        <Stat
+        <PCStat
           label="Rarest element"
           value={data.rarest_element || '—'}
-          subtitle={SUBTITLES.rarest_element}
+          subtitle="the rarest atom in your body"
           dynamic={dynamicForRarestElement(data.rarest_element)}
+          color="rgba(124, 155, 255, 0.5)"
         />
-        <Stat
+        <PCStat
           label="Atom age (avg)"
-          value={
-            data.avg_atom_age_billion_years
-              ? `${data.avg_atom_age_billion_years.toFixed(1)} billion years`
-              : '—'
-          }
-          subtitle={SUBTITLES.atom_age}
+          value={data.avg_atom_age_billion_years ? `${data.avg_atom_age_billion_years.toFixed(1)} billion years` : '—'}
+          subtitle="how old your atoms are on average"
           dynamic={dynamicForAtomAge(data.avg_atom_age_billion_years)}
+          color="rgba(124, 155, 255, 0.5)"
         />
-        <Stat
+        <PCStat
           label="Nucleosynthesis path"
           value={pathway}
-          subtitle={SUBTITLES.nucleosynthesis_path}
+          subtitle="how most of your atoms were forged"
           dynamic={dynamicForPathway(pathway)}
+          color="rgba(124, 155, 255, 0.5)"
           wide
         />
       </div>
@@ -151,13 +160,13 @@ export default function ProfileCard({ data, birth }) {
   )
 }
 
-function Stat({ label, value, subtitle, dynamic, accent, wide }) {
+function PCStat({ label, value, subtitle, dynamic, color, wide }) {
   return (
-    <div className={`stat ${wide ? 'stat-wide' : ''} ${accent ? 'stat-accent' : ''}`}>
-      <span className="stat-label">{label}</span>
-      <span className="stat-value">{value}</span>
-      {subtitle && <span className="stat-subtitle">{subtitle}</span>}
-      {dynamic && <span className="stat-dynamic">{dynamic}</span>}
+    <div className={`pc-stat ${wide ? 'pc-stat-wide' : ''}`} style={{ '--pc-color': color }}>
+      <span className="pc-stat-label">{label}</span>
+      <span className="pc-stat-value">{value}</span>
+      {subtitle && <span className="pc-stat-subtitle">{subtitle}</span>}
+      {dynamic && <span className="pc-stat-dynamic">{dynamic}</span>}
     </div>
   )
 }
