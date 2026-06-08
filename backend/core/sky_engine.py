@@ -40,7 +40,11 @@ def _ra_dec_to_unit_vec(ra_hours: float, dec_deg: float) -> tuple[float, float, 
 
 
 def _iter_hyg(max_magnitude: float = NAKED_EYE_LIMIT):
-    """Yield HYG rows brighter than max_magnitude as plain dicts."""
+    """Yield HYG rows brighter than max_magnitude as plain dicts.
+
+    The Sun (``mag=-26.7``) is excluded because we reconstruct the *night* sky
+    and its fixed placeholder position (ra=0, dec=0) would produce wrong alt/az.
+    """
     with open(HYG_PATH, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -49,6 +53,10 @@ def _iter_hyg(max_magnitude: float = NAKED_EYE_LIMIT):
             except (TypeError, ValueError):
                 continue
             if mag >= max_magnitude:
+                continue
+            # Exclude the Sun — its magnitude is unrealistically bright and
+            # its ra/dec are placeholder values, not actual ephemeris positions.
+            if (row.get("proper") or "").strip() == "Sol":
                 continue
             yield row
 

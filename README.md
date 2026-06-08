@@ -9,7 +9,7 @@
 Every atom in your body was forged in a star. **Stellar DNA** is a two-part web application that:
 
 1. **Reconstructs the night sky** visible from your birth location at the moment you were born, classifies the visible stars by spectral class (O, B, A, F, G, K, M), and uses published nucleosynthesis yield tables to compute the elemental composition of the matter that made you.
-2. **Scores 5 trait dimensions** (Energy, Pace, Legacy, Curiosity Type, Temporal Orientation) from those stellar values using pure math, then calls a free LLM (Google Gemini 1.5 Flash, with Groq Llama 3 fallback) to write a unique 3-paragraph narrative portrait.
+2. **Scores 5 trait dimensions** (Energy, Pace, Legacy, Curiosity Type, Temporal Orientation) from those stellar values using pure math, then calls a free LLM (Google Gemini, with Groq Llama 3 fallback) to write a unique 3-paragraph narrative portrait.
 
 All math is deterministic and reproducible. The LLM is used only to turn the numbers into language; it never invents scientific claims.
 
@@ -24,22 +24,33 @@ stellar-dna/
 ├── frontend/                  React + Vite (UI)
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── StarMap.jsx        Three.js sky globe
-│   │   │   ├── ElementChart.jsx   D3 elemental breakdown
-│   │   │   ├── ProfileCard.jsx    Part 1 display
-│   │   │   ├── TraitProfile.jsx   Part 2 display
-│   │   │   └── InputForm.jsx      Birth date + location input
+│   │   │   ├── Header.jsx         Site-wide navigation
+│   │   │   ├── InputForm.jsx      Birth date + location + name input
+│   │   │   ├── StarMap.jsx        Three.js sky globe (3D interactive)
+│   │   │   ├── ElementChart.jsx   D3 elemental donut chart
+│   │   │   ├── SpectralBar.jsx    Spectral class distribution bars
+│   │   │   ├── ScoreBar.jsx       Gradient score bar (0-100)
+│   │   │   ├── ProfileCard.jsx    Part 1 birth sky stats
+│   │   │   ├── TraitProfile.jsx   Part 2 scores + narrative
+│   │   │   ├── ErrorBox.jsx       Error display with retry
+│   │   │   └── Loader.jsx         Loading spinner
 │   │   ├── pages/
-│   │   │   ├── Home.jsx
-│   │   │   └── Profile.jsx
+│   │   │   ├── Home.jsx           Landing page with form + theory + timeline
+│   │   │   ├── Profile.jsx        Full cosmic profile display
+│   │   │   ├── About.jsx          How it works — 15-section technical deep dive
+│   │   │   └── NotFound.jsx       404 page
 │   │   ├── api/
 │   │   │   └── client.js          fetch calls to backend
-│   │   └── main.jsx
+│   │   ├── App.jsx                Router setup
+│   │   ├── main.jsx               Entry point
+│   │   └── index.css              All styles (~31 KB)
 │   ├── package.json
 │   └── vite.config.js
 │
 ├── backend/                   Python + FastAPI
 │   ├── main.py                    FastAPI app entry point
+│   ├── Dockerfile                 HF Spaces deployment
+│   ├── .dockerignore
 │   ├── routers/
 │   │   ├── part1.py               /api/part1 endpoint
 │   │   └── part2.py               /api/part2 endpoint
@@ -52,15 +63,19 @@ stellar-dna/
 │   ├── llm/
 │   │   ├── prompt_builder.py      builds the LLM prompt
 │   │   └── narrative_client.py    Gemini + Groq calls
+│   ├── tests/
+│   │   └── test_trait_scorer.py   Deterministic scoring tests
 │   ├── data/
 │   │   └── hyg_database.csv       ~120k stars, HYG v3.7
+│   ├── .env.example               API key template
 │   ├── requirements.txt
-│   └── .env                       API keys (never commit)
+│   └── .gitignore
 │
 ├── docs/
 │   ├── PART1_REFERENCE.md         Full astrophysics engine spec
 │   └── PART2_REFERENCE.md         Full trait engine spec
 │
+├── vercel.json                   Vercel deployment config
 └── README.md
 ```
 
@@ -77,9 +92,9 @@ stellar-dna/
 | Python | 3.11+   | Backend runtime             |
 | pip    | 23+     | Backend dependencies        |
 
-A free API key for at least one of the following is also required to generate narratives:
+A free API key for at least one of the following is also required to generate narrative paragraphs:
 
-- **Google Gemini 1.5 Flash** (primary, recommended) — [Get a key](https://aistudio.google.com/app/apikey). 15 requests/min, 1M tokens/day, no credit card.
+- **Google Gemini** (primary) — [Get a key](https://aistudio.google.com/app/apikey). 15 requests/min, 1M tokens/day, no credit card.
 - **Groq Llama 3** (fallback) — [Get a key](https://console.groq.com). 14,400 requests/day.
 
 The 5 trait scores and the Part 1 astrophysics computation work without any API key; only the narrative paragraph requires the LLM.
@@ -117,6 +132,36 @@ Vite serves the UI on `http://localhost:5173` and proxies all `/api/*` requests 
 ### 3. Use it
 
 Open <http://localhost:5173>, enter a birth date, time, and city. The frontend geocodes the city via OpenStreetMap Nominatim (no key required), sends the result to `/api/part1`, then forwards the Part 1 response to `/api/part2` and renders the full profile.
+
+---
+
+## Deployment
+
+### Frontend → Vercel
+
+The frontend is a standard Vite/React app. To deploy on Vercel:
+
+1. Push the repository to GitHub.
+2. Import the project in [Vercel](https://vercel.com/new).
+3. Set the **Root Directory** to the repo root (the `vercel.json` is at the root level).
+4. Add an environment variable:
+   - `VITE_API_BASE` — set to your HF Spaces backend URL (e.g. `https://your-space.hf.space/api`).
+5. Deploy. All routes fall back to `index.html` for client-side routing.
+
+Vercel will auto-detect the Vite framework from the root-level `vercel.json`.
+
+### Backend → Hugging Face Spaces
+
+The backend is a FastAPI app containerized with Docker. To deploy on HF Spaces:
+
+1. Create a new Space at [huggingface.co/spaces](https://huggingface.co/spaces).
+2. Choose **Docker** as the Space SDK.
+3. Connect your GitHub repository and set the **Dockerfile path** to `backend/Dockerfile`.
+4. Add secrets (HF Spaces → Settings → Repository secrets):
+   - `GEMINI_API_KEY` — your Google Gemini API key.
+   - `GROQ_API_KEY` — your Groq API key (optional fallback).
+   - `CORS_ORIGINS` — set to your Vercel frontend URL (e.g. `https://your-app.vercel.app`).
+5. The Space builds and starts automatically. The API will be available at `https://your-space.hf.space`.
 
 ---
 
@@ -173,13 +218,13 @@ Never commit directly to `main`. `dev` is always slightly ahead of `main`.
 
 ## Tech Stack
 
-**Frontend** — Vite 8, React 19, react-router-dom, three.js, @react-three/fiber, @react-three/drei, d3. UI styled minimally; the sky globe and elemental pie chart are the two visual focal points.
+**Frontend** — Vite 8, React 19, react-router-dom, three.js + @react-three/fiber/drei (3D sky globe), d3 (elemental donut chart). All CSS in a single stylesheet with cinematic dark theme.
 
-**Backend** — FastAPI, skyfield (sky positions), pandas (HYG database), httpx (LLM API calls), pydantic (request validation), python-dotenv (key loading).
+**Backend** — FastAPI, skyfield (sky positions), pandas (HYG database), httpx (LLM API calls), pydantic (request validation), python-dotenv (key loading). Tested with pytest.
 
 **Data** — HYG Database v3.7 (~120k stars, public domain), JPL DE421 ephemeris (downloaded on first skyfield run).
 
-**LLM** — Google Gemini 1.5 Flash (primary), Groq Llama 3 8B (fallback). Both have generous free tiers.
+**LLM** — Google Gemini (primary), Groq Llama 3 8B (fallback). Both have generous free tiers.
 
 **Geocoding** — OpenStreetMap Nominatim (frontend, no key required). Polite usage with a 1 req/sec limit.
 
@@ -197,44 +242,13 @@ Never commit directly to `main`. `dev` is always slightly ahead of `main`.
 
 ---
 
-## Implementation Plan
+## Status
 
-This is the active dev roadmap. The work is split into two stages, one per spec doc.
-
-### Part 1 — Astrophysics Engine (`docs/PART1_REFERENCE.md`)
-
-The frontend UI and the backend scaffold are in place. Part 1 is the job of taking
-a birth date/time/location, reconstructing the sky, and returning the 6
-Part 1 outputs that Part 2 will consume.
-
-| #   | Step                                                                                                                                                                                                                        | Status | Files                                        |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | -------------------------------------------- |
-| 1   | Backend venv + `pip install -r requirements.txt`                                                                                                                                                                            | done   | `backend/.venv/`, `backend/requirements.txt` |
-| 2   | Real sky engine: load HYG, filter mag < 6.5, use `skyfield` to find stars above the horizon, return `star_positions` with `name/ra/dec/magnitude/spectral_class/x/y/z`                                                      | done   | `backend/core/sky_engine.py`                 |
-| 3   | Spectral classifier: parse HYG `spect` column to OBAFGKM, count by class, normalize to `spectral_weights`, argmax → `dominant_class`, brightest in that class → `dominant_star_example`                                     | done   | `backend/core/spectral_classifier.py`        |
-| 4   | Element percentages: weighted sum of `SPECTRAL_ELEMENT_YIELDS` table, renormalize; map dominant element to `nucleosynthesis_path`; compute `rarest_element` + `rarest_element_origin`; compute `avg_atom_age_billion_years` | done   | `backend/core/nucleosynthesis.py`            |
-| 5   | Chronobiology: meteorological season lookup (month-only), hemisphere flip                                                                                                                                                   | done   | `backend/core/chronobiology.py`              |
-| 6   | Router: accept the frontend's field names (`birth_date`, `birth_time`, `latitude`, `longitude`, `location_name`); return a flat response that matches both the frontend's render code and the Part 2 contract               | done   | `backend/routers/part1.py`                   |
-
-**Part 1 contract (the 6 values Part 2 will receive):**
-`season`, `hemisphere`, `dominant_class`, `spectral_weights`, `element_percentages`, `nucleosynthesis_path`.
-
-**Part 1 display-only extras (frontend renders, Part 2 ignores):**
-`star_positions`, `dominant_star_example`, `rarest_element`, `rarest_element_origin`, `avg_atom_age_billion_years`.
-
-### Part 2 — Trait Engine (`docs/PART2_REFERENCE.md`)
-
-_To be filled in once Part 1 is verified end-to-end._ The work will be:
-
-- Rewrite `core/trait_scorer.py` with the 5 scoring functions from the spec (energy / pace / legacy / curiosity / temporal) using the 6 Part 1 outputs as inputs.
-- Rewrite `llm/prompt_builder.py` to send all 11 values (6 Part 1 + 5 scores) and require JSON output with the `Note:` disclaimer.
-- Update `llm/narrative_client.py` to parse the JSON response and split into `archetype_name` + `narrative_p1/p2/p3`.
-- Reshape `routers/part2.py` to accept the flat 9-field shape the frontend already sends in `postPart2`, and return the 9 Part 2 outputs.
-- Add `.env` with at least one of `GEMINI_API_KEY` / `GROQ_API_KEY`.
-
-### Issue to Remember (Part 1 / Part 2 boundary)
-
-The frontend's `api/client.js` `postPart2()` already sends the 9 Part 1 fields directly. The current Part 2 router still expects `{ date, time, latitude, longitude, part1 }` and the trait scorer is a placeholder. So Part 1 will render fully on `/profile` but the `TraitProfile` section will be empty / error. This is the Part 2 phase to fix.
+- **Part 1 — Astrophysics Engine** — Complete. HYG-based sky reconstruction, spectral classification, nucleosynthesis yields, season/hemisphere detection.
+- **Part 2 — Trait Engine** — Complete. 5 deterministic scores, curiosity type rule table, LLM narrative generation with Gemini + Groq fallback.
+- **Frontend UI** — Complete. Three-page app (Home, Profile, About) with cinematic dark theme, interactive starfield canvas, 3D sky globe, gradient score bars, and a full "How It Works" technical deep dive.
+- **Tests** — Complete. Comprehensive pytest suite for all 5 trait scoring functions.
+- **Deployment** — Configured for Vercel (frontend) and Hugging Face Spaces (backend via Docker).
 
 ---
 

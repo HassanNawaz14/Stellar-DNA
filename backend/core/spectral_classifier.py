@@ -1,9 +1,16 @@
 """Aggregate spectral classes for Part 1.
 
-Takes the visible stars produced by the sky engine, counts how many fall into
-each OBAFGKM class, normalizes into a probability distribution, and identifies
+Takes the visible stars produced by the sky engine, computes a brightness-
+weighted spectral distribution (each star weighted by its apparent flux
+10^(-mag/2.5)), normalizes into a probability distribution, and identifies
 both the dominant class and the brightest example star in that class.
+
+Brightness weighting makes results vary meaningfully by time and location —
+a few bright stars dominate the visual sky, and which bright stars are up
+changes throughout the night and across latitudes.
 """
+
+import math
 
 PRIMARY_CLASSES = ["O", "B", "A", "F", "G", "K", "M"]
 
@@ -11,18 +18,25 @@ PRIMARY_CLASSES = ["O", "B", "A", "F", "G", "K", "M"]
 def classify_stars(sky: dict) -> dict:
     """Compute spectral_weights, dominant_class, and dominant_star_example.
 
+    Each visible star contributes its apparent flux (10^(-mag/2.5)) to its
+    spectral class, so bright stars dominate the distribution — matching the
+    visual experience of the night sky.
+
     Input sky dict must contain a ``star_positions`` list (as produced by
     ``core.sky_engine.compute_sky``). Each star must have ``spectral_class`` and
     ``magnitude`` keys.
     """
-    counts = {c: 0 for c in PRIMARY_CLASSES}
+    flux_by_class: dict[str, float] = {c: 0.0 for c in PRIMARY_CLASSES}
     for star in sky.get("star_positions", []):
         c = star.get("spectral_class", "G")
-        if c in counts:
-            counts[c] += 1
+        if c not in flux_by_class:
+            continue
+        mag = star.get("magnitude", 5)
+        flux = 10 ** (-mag / 2.5)
+        flux_by_class[c] += flux
 
-    total = sum(counts.values()) or 1
-    weights = {c: round(counts[c] / total, 4) for c in PRIMARY_CLASSES}
+    total = sum(flux_by_class.values()) or 1e-9
+    weights = {c: round(flux_by_class[c] / total, 4) for c in PRIMARY_CLASSES}
     dominant = max(weights, key=weights.get)
 
     brightest = None

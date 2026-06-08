@@ -30,6 +30,10 @@ const ELEMENT_LABELS = {
 export default function ElementChart({ data = {} }) {
   const ref = useRef(null)
 
+  const topElement = Object.entries(data)
+    .filter(([k, v]) => k !== 'other' && v > 0)
+    .sort((a, b) => b[1] - a[1])[0]
+
   useEffect(() => {
     const entries = Object.entries(data).filter(([, v]) => v > 0)
     if (!entries.length) return
@@ -57,8 +61,8 @@ export default function ElementChart({ data = {} }) {
       .attr('class', 'slice')
       .attr('d', arc)
       .attr('fill', (d) => color(d.data.element))
-      .attr('stroke', '#0a0a14')
-      .attr('stroke-width', 2)
+      .attr('stroke', '#08090f')
+      .attr('stroke-width', 2.5)
 
     g.selectAll('text.slice-label')
       .data(pie(pieData))
@@ -72,38 +76,48 @@ export default function ElementChart({ data = {} }) {
       .attr('font-weight', '600')
       .text((d) => (d.data.value > 0.04 ? d.data.element : ''))
 
-    g.append('text')
-      .attr('text-anchor', 'middle')
-      .attr('dy', '-0.2em')
-      .attr('fill', '#aab2c8')
-      .attr('font-size', '13px')
-      .text('Elemental')
+    if (topElement) {
+      g.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('dy', '-0.5em')
+        .attr('fill', '#ffffff')
+        .attr('font-size', '28px')
+        .attr('font-weight', '800')
+        .attr('letter-spacing', '0.04em')
+        .text(topElement[0])
 
-    g.append('text')
-      .attr('text-anchor', 'middle')
-      .attr('dy', '1em')
-      .attr('fill', '#ffffff')
-      .attr('font-size', '16px')
-      .attr('font-weight', '700')
-      .text('Composition')
-  }, [data])
+      g.append('text')
+        .attr('text-anchor', 'middle')
+        .attr('dy', '1.2em')
+        .attr('fill', '#6b7493')
+        .attr('font-size', '11px')
+        .attr('font-weight', '500')
+        .attr('text-transform', 'uppercase')
+        .attr('letter-spacing', '0.12em')
+        .text('dominant')
+    }
+  }, [data, topElement])
 
   const entries = Object.entries(data).filter(([, v]) => v > 0)
   return (
-    <div className="element-chart">
-      <svg ref={ref} width="100%" height="420" viewBox="0 0 420 420" />
-      <ul className="element-legend">
-        {entries
-          .sort((a, b) => b[1] - a[1])
-          .map(([el, val]) => (
-            <li key={el}>
-              <span className="dot" style={{ background: ELEMENT_COLORS[el] || ELEMENT_COLORS.other }} />
-              <span className="legend-name">{ELEMENT_LABELS[el] || el}</span>
-              <span className="legend-sym">{el}</span>
-              <span className="legend-val">{(val * 100).toFixed(1)}%</span>
-            </li>
-          ))}
-      </ul>
+    <div className="ec-container">
+      <p className="ec-title">Elemental composition</p>
+      <p className="ec-subtitle">Fractional mass of each element in your body, traced to the stellar process that forged it.</p>
+      <div className="ec-chart-wrap">
+        <svg ref={ref} width="100%" height="420" viewBox="0 0 420 420" />
+        <ul className="ec-legend">
+          {entries
+            .sort((a, b) => b[1] - a[1])
+            .map(([el, val]) => (
+              <li key={el}>
+                <span className="ec-dot" style={{ background: ELEMENT_COLORS[el] || ELEMENT_COLORS.other }} />
+                <span className="ec-lname">{ELEMENT_LABELS[el] || el}</span>
+                <span className="ec-lsym">{el}</span>
+                <span className="ec-lval">{(val * 100).toFixed(1)}%</span>
+              </li>
+            ))}
+        </ul>
+      </div>
     </div>
   )
 }

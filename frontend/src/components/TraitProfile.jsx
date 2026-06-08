@@ -24,10 +24,25 @@ const TEMPORAL_HINT = {
   100: 'Drawn to the long arc of time — legacy and deep history.',
 }
 
+const CURIOSITY_STYLES = {
+  deep: { color: '#e8c547', border: 'rgba(232, 197, 71, 0.35)', bg: 'rgba(232, 197, 71, 0.08)' },
+  structural: { color: '#5fb5d4', border: 'rgba(95, 181, 212, 0.35)', bg: 'rgba(95, 181, 212, 0.08)' },
+  expansive: { color: '#5b8c5a', border: 'rgba(91, 140, 90, 0.35)', bg: 'rgba(91, 140, 90, 0.08)' },
+  elemental: { color: '#e16a8d', border: 'rgba(225, 106, 141, 0.35)', bg: 'rgba(225, 106, 141, 0.08)' },
+}
+
 function hintFor(value, map) {
   if (value < 34) return map[0]
   if (value < 67) return map[50]
   return map[100]
+}
+
+function formatNarrative(text) {
+  if (!text) return null
+  if (text.startsWith('Note:')) {
+    return <em className="tp-note">{text}</em>
+  }
+  return text
 }
 
 export default function TraitProfile({ data }) {
@@ -45,17 +60,17 @@ export default function TraitProfile({ data }) {
   } = data
 
   return (
-    <div className="trait-profile">
-      <h2 className="card-title">Trait Profile</h2>
-
+    <div className="tp-container">
+      {/* ── Archetype ── */}
       {archetype_name && (
-        <div className="archetype">
-          <span className="archetype-label">Your archetype</span>
-          <h3 className="archetype-name">{archetype_name}</h3>
+        <div className="tp-archetype">
+          <span className="tp-archetype-label">Your archetype</span>
+          <h2 className="tp-archetype-name">{archetype_name}</h2>
         </div>
       )}
 
-      <div className="score-grid">
+      {/* ── Scores grid ── */}
+      <div className="tp-scores">
         <ScoreBar
           label="Energy"
           value={energy_score}
@@ -78,21 +93,26 @@ export default function TraitProfile({ data }) {
         />
       </div>
 
+      {/* ── Curiosity type ── */}
       {curiosity_type && (
-        <div className="curiosity">
-          <span className="curiosity-label">Curiosity type</span>
-          <span className={`curiosity-pill curiosity-${curiosity_type.toLowerCase()}`}>
+        <div className="tp-curiosity">
+          <span className="tp-curiosity-label">Curiosity type</span>
+          <span
+            className="tp-curiosity-pill"
+            style={CURIOSITY_STYLES[curiosity_type.toLowerCase()] || CURIOSITY_STYLES.expansive}
+          >
             {curiosity_type}
           </span>
         </div>
       )}
 
+      {/* ── Stellar Portrait ── */}
       {(narrative_p1 || narrative_p2 || narrative_p3) && (
-        <div className="narrative">
-          <h3 className="narrative-title">Your stellar portrait</h3>
-          {narrative_p1 && <p>{narrative_p1}</p>}
-          {narrative_p2 && <p>{narrative_p2}</p>}
-          {narrative_p3 && <p>{narrative_p3}</p>}
+        <div className="tp-portrait">
+          <h3 className="tp-portrait-title">Your stellar portrait</h3>
+          {narrative_p1 && <p>{formatNarrative(narrative_p1)}</p>}
+          {narrative_p2 && <p>{formatNarrative(narrative_p2)}</p>}
+          {narrative_p3 && <p>{formatNarrative(narrative_p3)}</p>}
         </div>
       )}
     </div>

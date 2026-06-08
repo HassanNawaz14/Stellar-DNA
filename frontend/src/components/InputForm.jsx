@@ -9,6 +9,7 @@ const todayISO = () => new Date().toISOString().slice(0, 10)
 export default function InputForm() {
   const navigate = useNavigate()
   const [form, setForm] = useState({
+    name: '',
     birth_date: '',
     birth_time: '21:00',
     city: '',
@@ -94,7 +95,7 @@ export default function InputForm() {
         location_name: form.city || `${lat.toFixed(3)}, ${lon.toFixed(3)}`,
       }
       const part1 = await postPart1(payload)
-      navigate('/profile', { state: { part1, birth: payload } })
+      navigate('/profile', { state: { part1, birth: { ...payload, name: form.name.trim() || '' } } })
     } catch (err) {
       setError(err.message)
     } finally {
@@ -104,6 +105,21 @@ export default function InputForm() {
 
   return (
     <form className="input-form" onSubmit={handleSubmit} noValidate>
+      <div className="form-row">
+        <label className="field field-grow">
+          <span className="field-label">Your name</span>
+          <input
+            type="text"
+            name="name"
+            value={form.name}
+            onChange={handleChange}
+            placeholder="e.g. Alex"
+            autoComplete="off"
+          />
+        </label>
+      </div>
+
+      <div className="form-section-title">When were you born?</div>
       <div className="form-row">
         <label className="field">
           <span className="field-label">Birth date</span>
