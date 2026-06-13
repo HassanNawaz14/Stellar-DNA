@@ -131,7 +131,7 @@ Vite serves the UI on `http://localhost:5173` and proxies all `/api/*` requests 
 
 ### 3. Use it
 
-Open <http://localhost:5173>, enter a birth date, time, and city. The frontend geocodes the city via OpenStreetMap Nominatim (no key required), sends the result to `/api/part1`, then forwards the Part 1 response to `/api/part2` and renders the full profile.
+Open <[Stellar-DNA](https://stellar-dna.vercel.app/)>, enter a birth date, time, and city. The frontend geocodes the city via OpenStreetMap Nominatim (no key required), sends the result to `/api/part1`, then forwards the Part 1 response to `/api/part2` and renders the full profile.
 
 ---
 
